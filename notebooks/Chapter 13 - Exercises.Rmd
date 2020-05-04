@@ -1,0 +1,147 @@
+---
+title: "Chapter 13 Examples"
+---
+
+```{r}
+library(rethinking)
+library(tidyverse)
+library(stargazer)
+
+set.seed(123456)
+```
+
+I prepare the data. The book provides the code to set up district correctly. For whatever reason, the districts are not numbered correctly and that makes stan sad.
+
+```{r}
+data(bangladesh)
+
+dat <- list(
+  C = as.numeric(bangladesh$use.contraception),
+  D = as.integer(as.factor(bangladesh$district))
+)
+```
+
+# Logit
+I start with a traditional logit regression to figure out the data.
+
+This model fits this regression:
+  
+$$ logit(p) = \beta_0 $$
+
+I am interested in the constant $\beta_0$ as the overall odd ratio of using contraception.
+
+```{r}
+# Traditional logit model
+logit <- glm(dat$C ~ 1, family="binomial") %>%
+  stargazer(type = "text")
+```
+
+# Bayesian models
+## Fully pooled model
+
+This model completely disregards the clustering of women into districts.
+
+This is the Bayesian model that I am trying to estimate
+
+$$
+\begin{aligned}
+Contraception_i & = Bernoulli(p_i) \\
+logit(p_i) & = \beta_0 \\
+\beta_0 & = Normal(0, 2) \\
+\end{aligned}
+$$
+
+```{r}
+full_pooling <- ulam(
+  alist(
+    C ~ dbinom( 1 , p_i ) ,
+    logit(p_i) <- beta_0,
+    beta_0 ~ dnorm( 0 , 2 )
+  ), data=dat , chains=4 , log_lik=TRUE )
+```
+
+```{r}
+precis(full_pooling)
+```
+
+## No pooling model
+
+This model calculates an intercept for each district and doesn't pool variance across districts. The idea here is to estimate a probability of using contraception for each district using fixed effects:
+
+$$
+\begin{aligned}
+Contraception_{ij} & = Bernoulli(p_{ij}) \\
+logit(p_{ij}) & = \beta_j \\
+\beta_j & = Normal(0, 2) \\
+\end{aligned}
+$$
+
+```{r}
+no_pooling <- ulam(
+  alist(
+    C ~ dbinom( 1 , p_ij ) ,
+    logit(p_ij) <- beta_j[D] ,
+    beta_j[D] ~ dnorm( 0 , 2 )
+  ), data=dat , chains=4 , log_lik=TRUE )
+```
+
+```{r}
+precis(no_pooling, depth = 2)
+```
+
+## Adaptive pooling model
+
+This model estimates a multilevel model where variance within and between districts is calculated in an adaptive way.
+
+$$
+\begin{aligned}
+Contraception_{ij} & = Bernoulli(p_{ij}) \\
+logit(p_{ij}) & = \beta_j \\
+\beta_j & = Normal(\bar{\beta}, \sigma) \\
+\bar{\beta} & = Normal(0, 2) \\
+\end{aligned}
+$$
+
+```{r}
+adaptive_pooling <- ulam(
+  alist(
+    C ~ dbinom( 1 , p_ij ) ,
+    logit(p_ij) <- beta_j[D] ,
+    beta_j[D] ~ dnorm( beta_bar , sigma),
+    # Hyperpriors
+    beta_bar ~ dnorm(0, 2),
+    sigma ~ dexp(1)
+  ), data=dat , chains=4 , log_lik=TRUE )
+```
+
+
+```{r}
+precis(adaptive_pooling, depth = 2)
+```
+
+```{r}
+post_adaptive_pooling <- extract.samples(adaptive_pooling)
+
+plot( NULL , xlim=c(-2.5, 0.5) , ylim=c(0, 1.3) ,
+    xlab="log-odds" , ylab="Density" )
+
+for ( i in 1:100 )
+    curve( dnorm(x,post_adaptive_pooling$beta_j[i],post_adaptive_pooling$sigma[i]) , add=TRUE ,
+    col=col.alpha("black",0.2) )
+```
+
+## Model Comparison
+
+I finally compare the three models using WAIC. It is clear that the adaptive pooling (i.e., multilevel model) is better at predicting than the other two models.
+
+```{r}
+compare(full_pooling, no_pooling, adaptive_pooling)
+```
+
+```{r}
+coeftab( no_pooling, adaptive_pooling )
+```
+
+```{r, fig.width = 8, fig.height = 30}
+plot(coeftab( no_pooling, adaptive_pooling ))
+```

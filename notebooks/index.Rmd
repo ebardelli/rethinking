@@ -1,0 +1,17 @@
+---
+title: "Home"
+---
+
+This is a collection of notebooks that I have put together while reading [__Statistical
+Rethinking__](https://xcelab.net/rm/statistical-rethinking/). Note that some of the
+code snippets come directly from the book's code examples.
+
+I wrote the notebooks marked as Exercises.
+
+## Notebooks
+
+[Chapter 9](Chapter-9.html)
+
+[Chapter 13](Chapter-13.html)
+
+[Chapter 13 - Exercises](Chapter-13---Exercises.html)

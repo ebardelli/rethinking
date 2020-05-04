@@ -1,0 +1,49 @@
+name: Build RNotebooks
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out repo
+      uses: actions/checkout@v2
+
+    - name: Pull R installation
+      uses: r-lib/actions/setup-r@v1
+      with:
+        r-version: '4.0.0' # The R version to download (if necessary) and use.
+
+    - name: Set up renv cache
+      uses: actions/cache@v1
+      with:
+        path: ~/.local/share/renv
+        key: ${{ runner.os }}-renv-${{ hashFiles('**/renv.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-renv-
+
+    - name: Install required packages
+      run: |
+        sudo apt-get install libcurl4-gnutls-dev libv8-dev pandoc pandoc-citeproc
+        Rscript notebooks/setup.R
+
+    - name: Build notebook pages
+      run: |
+        Rscript notebooks/compile.R
+
+        mkdir build
+        mv notebooks/*.html build/
+
+    - name: Deploy to Github Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.ACCESS_TOKEN }}
+        publish_dir: ./build
+        keep_files: true
+        commit_message: ${{ github.event.head_commit.message }}
+
