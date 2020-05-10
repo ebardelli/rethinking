@@ -12,6 +12,8 @@ I wrote the notebooks marked as Exercises.
 
 [Chapter 9](Chapter-9.html)
 
+[Chapter 11](Chapter-11.html)
+
 [Chapter 13](Chapter-13.html)
 
 [Chapter 13 - Exercises](Chapter-13---Exercises.html)
