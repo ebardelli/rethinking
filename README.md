@@ -3,7 +3,7 @@ rethinking
 
 This R package accompanies a course and book on Bayesian data analysis: McElreath 2020. Statistical Rethinking, 2nd edition, CRC Press. If you are using it with the first edition of the book, please see the notes at the bottom of this file.
 
-It contains tools for conducting both quick quadratic approximation of the posterior distribution as well as Hamiltonian Monte Carlo (through RStan - mc-stan.org). Many packages do this. The signature difference of this package is that it forces the user to specify the model as a list of explicit distributional assumptions. This is more tedious than typical formula-based tools, but it is also much more flexible and powerful and---most important---useful for teaching and learning. When students have to write out every detail of the model, they actually learn the model.
+It contains tools for conducting both quick quadratic approximation of the posterior distribution as well as Hamiltonian Monte Carlo (through RStan or cmdstanr - mc-stan.org). Many packages do this. The signature difference of this package is that it forces the user to specify the model as a list of explicit distributional assumptions. This is more tedious than typical formula-based tools, but it is also much more flexible and powerful and---most important---useful for teaching and learning. When students have to write out every detail of the model, they actually learn the model.
 
 For example, a simple Gaussian model could be specified with this list of formulas:
 
@@ -25,10 +25,15 @@ Here's the brief verison.
 
 You'll need to install ``rstan`` first. Go to ``http://mc-stan.org`` and follow the instructions for your platform. The biggest challenge is getting a C++ compiler configured to work with your installation of R. The instructions at ``https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started`` are quite thorough. Obey them, and you'll likely succeed.
 
-Then you can install ``rethinking`` from within R using:
+There are some advantages to accessing Stan through ``cmdstanr`` rather than rstan. These advantages include faster updates and therefore quicker access to new features. If you want to access Stan using the ``cmdstanr`` package instead, then you may install that as well with
+```
+devtools::install_github("stan-dev/cmdstanr")
+```
+If you haven't installed cmdstan previously, you will also need to do that with ``cmdstanr::install_cmdstan()``. Then you need to add ``cmdstan=TRUE`` to any ``ulam`` code to use cmdstan instead of rstan. To use cmdstan as the default interface, do ``set_ulam_cmdstan(TRUE)``.
+
+Once rstan and cmdstan are installed (almost there), then you can install ``rethinking`` from within R using:
 ```
 install.packages(c("coda","mvtnorm","devtools","loo","dagitty"))
-library(devtools)
 devtools::install_github("rmcelreath/rethinking")
 ```
 If there are any problems, they likely arise when trying to install ``rstan``, so the ``rethinking`` package has little to do with it. See the manual linked above for some hints about getting ``rstan`` installed. But always consult the RStan section of the website at ``mc-stan.org`` for the latest information on RStan.
@@ -397,9 +402,38 @@ This model does not sample quickly, so I've set `sample=FALSE`. You can still in
 
 Note that the covariance `SIGMA` is built the same way as before, but then we immediately decompose it to a Cholesky factor and build the varying intercepts `g` by matrix multiplication. The `<<-` operator tells `ulam` not to loop, but to do a direct assignment. So `g <<- L_SIGMA * eta` does the right linear algebra.
 
+## Within-chain multithreading
+
+Using ``cmdstanr`` instead of ``rstan`` is currently the only way to use within-chain multithreading with ``rethinking``. It also tends to compile models faster and is more intelligent about when models need to be re-compiled, so using ``cmdstanr`` is recommended, even if you don't want multithreading.
+
+If you want ``ulam`` to access Stan using the ``cmdstanr`` package, then you may install that as well with
+```
+devtools::install_github("stan-dev/cmdstanr")
+```
+If you haven't installed cmdstan previously, you will also need to do that with ``install_cmdstan()``. 
+
+Then you need to add ``cmdstan=TRUE`` to the ``ulam`` code. The ``threads`` argument controls the number of threads per chain. Example:
+```
+N <- 1e4
+x <- rnorm(N)
+m <- 1 + rpois(N,2)
+y <- rbinom( N , size=m , prob=inv_logit(-3+x) )
+dat <- list( y=y , x=x , m=m )
+# two threads
+m1 <- ulam(
+    alist(
+        y ~ binomial_logit( m , logit_p ),
+        logit_p <- a + b*x,
+        a ~ normal(0,1.5),
+        b ~ normal(0,0.5)
+    ) , data=dat , 
+    cmdstan=TRUE , threads=2 , refresh=1000 )
+```
+There are models that cannot be automaticaly multithreaded this way, because of the complexity of the code. In those cases, you can write the code directly in Stan. See [this guide](https://mc-stan.org/users/documentation/case-studies/reduce_sum_tutorial.html). Writing multithreaded models direct in Stan can also be more efficient, since you can make detailed choices about which variables to pass and which pieces of the model to multithread.
+
 ## Work in progress
 
-`ulam` is still in rapid development. But it will be the core of the 2nd edition of the textbook, allowing more precise and transparent model definitions that hide less of what is actually going on.
+`ulam` is still in development, but mostly feature complete. It will remain primarily a teaching tool, exposing the statistical details of the model while hiding some of the programming details necessary in Stan.
 
 
 # `map2stan` syntax and features
