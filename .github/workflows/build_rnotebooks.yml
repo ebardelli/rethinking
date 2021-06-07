@@ -19,10 +19,10 @@ jobs:
       with:
         image: ebardelli/rethinking
         options: -v ${{ github.workspace }}:/work
-      run: |
-        Rscript notebooks/compile.R
-        mkdir build
-        mv notebooks/*.html build/
+        run: |
+          Rscript notebooks/compile.R
+          mkdir build
+          mv notebooks/*.html build/
 
     - name: Deploy to Github Pages
       uses: peaceiris/actions-gh-pages@v3
