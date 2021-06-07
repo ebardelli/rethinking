@@ -14,28 +14,13 @@ jobs:
     - name: Check out repo
       uses: actions/checkout@v2
 
-    - name: Pull R installation
-      uses: r-lib/actions/setup-r@v1
-      with:
-        r-version: '4.0.0' # The R version to download (if necessary) and use.
-
-    - name: Set up renv cache
-      uses: actions/cache@v1
-      with:
-        path: ~/.local/share/renv
-        key: ${{ runner.os }}-renv-${{ hashFiles('**/renv.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-renv-
-
-    - name: Install required packages
-      run: |
-        sudo apt-get install libcurl4-gnutls-dev libv8-dev pandoc pandoc-citeproc
-        Rscript notebooks/setup.R
-
     - name: Build notebook pages
+      uses: addnab/docker-run-action@v3
+      with:
+        image: ebardelli/rethinking
+        options: -v ${{ github.workspace }}:/work
       run: |
         Rscript notebooks/compile.R
-
         mkdir build
         mv notebooks/*.html build/
 
@@ -46,4 +31,3 @@ jobs:
         publish_dir: ./build
         keep_files: true
         commit_message: ${{ github.event.head_commit.message }}
-
